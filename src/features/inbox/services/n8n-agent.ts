@@ -42,7 +42,8 @@ export interface N8nAgentAction {
 }
 
 export interface N8nAgentReply {
-  text: string;
+  // One or more WhatsApp messages to deliver in order (natural multi-part reply).
+  messages: string[];
   actions: N8nAgentAction[];
 }
 
@@ -191,16 +192,30 @@ export async function callN8nAgent(p: CallN8nParams): Promise<N8nAgentReply> {
     throw new Error(`[n8n-agent] webhook responded ${res.status}`);
   }
 
-  const data = (await res.json()) as { text?: unknown; actions?: unknown };
+  const data = (await res.json()) as {
+    messages?: unknown;
+    text?: unknown;
+    actions?: unknown;
+  };
 
-  const text = typeof data.text === "string" ? data.text.trim() : "";
-  if (!text) {
-    throw new Error("[n8n-agent] webhook returned no `text`");
+  // Prefer `messages` (array of parts); fall back to a single `text`.
+  let messages: string[] = [];
+  if (Array.isArray(data.messages)) {
+    messages = data.messages
+      .filter((m): m is string => typeof m === "string")
+      .map((m) => m.trim())
+      .filter(Boolean);
+  } else if (typeof data.text === "string" && data.text.trim()) {
+    messages = [data.text.trim()];
+  }
+
+  if (messages.length === 0) {
+    throw new Error("[n8n-agent] webhook returned no messages/text");
   }
 
   const actions = Array.isArray(data.actions)
     ? (data.actions as N8nAgentAction[])
     : [];
 
-  return { text, actions };
+  return { messages, actions };
 }
