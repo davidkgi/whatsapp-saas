@@ -104,6 +104,35 @@ export interface SendTemplateResult {
 }
 
 /**
+ * Shows a "typing…" indicator (and marks the inbound message as read) to the
+ * WhatsApp user while we prepare the reply. Best-effort: never throws, so a
+ * typing failure can't block the actual message. The indicator is dismissed
+ * when we send the next message, or after ~25s (YCloud/Meta limit).
+ */
+export async function sendTypingIndicator(
+  apiKey: string,
+  wamid: string,
+): Promise<void> {
+  if (!apiKey || !wamid) return;
+  try {
+    await fetch(
+      `${YCLOUD_BASE_URL}/whatsapp/inboundMessages/${encodeURIComponent(
+        wamid,
+      )}/typingIndicator`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+      },
+    );
+  } catch {
+    // best-effort; a typing failure must never block the real reply
+  }
+}
+
+/**
  * Sends a template message via the YCloud WhatsApp API.
  * Templates bypass the 24h window restriction.
  * Throws YCloudError on non-2xx responses.
