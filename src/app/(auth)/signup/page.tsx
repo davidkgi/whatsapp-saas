@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignupForm } from "@/features/auth/components/signup-form";
 import { isSignupOpen } from "@/features/auth/services/signup-gate";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Crear cuenta — Agente WhatsApp",
