@@ -8,6 +8,7 @@ import {
   callN8nAgent,
   type N8nAgentAction,
 } from "./n8n-agent";
+import { sendTypingIndicator } from "./ycloud-client";
 import type { ToolContext } from "@/features/tools/core/tool";
 import { resolveSystemPrompt } from "./prompt-resolver";
 import { buildSystemPrompt } from "./prompt-builder";
@@ -322,15 +323,30 @@ export async function processNextBatch(): Promise<ProcessBatchResult> {
         mergedText,
       });
 
-      const dispatchResult = await dispatchText({
-        workspaceId: batch.workspace_id,
-        conversationId: batch.conversation_id,
-        body: n8nReply.text,
-        // AI-generated: no senderUserId
-      });
+      // Deliver the reply as one or more WhatsApp messages, with a "typing…"
+      // indicator and a human-like delay proportional to each part's length.
+      const ycloudApiKey = await getYCloudApiKey(batch.workspace_id, supabase);
+      const inboundWamid = await getLatestInboundWamid(batch.id, supabase);
 
-      if (!dispatchResult.ok) {
-        console.error("[buffer] n8n dispatchText failed:", dispatchResult.error);
+      for (const part of n8nReply.messages) {
+        if (ycloudApiKey && inboundWamid) {
+          await sendTypingIndicator(ycloudApiKey, inboundWamid);
+        }
+        await sleep(typingDelayMs(part));
+
+        const dispatchResult = await dispatchText({
+          workspaceId: batch.workspace_id,
+          conversationId: batch.conversation_id,
+          body: part,
+          // AI-generated: no senderUserId
+        });
+
+        if (!dispatchResult.ok) {
+          console.error(
+            "[buffer] n8n dispatchText failed:",
+            dispatchResult.error,
+          );
+        }
       }
 
       await applyN8nActions({
@@ -625,6 +641,51 @@ async function markBatchProcessed(
 //   send_template  → send an approved WhatsApp template
 //   set_stage      → move the contact's CRM stage
 // ──────────────────────────────────────────────────────────────────────────────
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Human-like typing delay: short messages send fast, longer ones take a bit
+// more, capped so the conversation never feels sluggish.
+function typingDelayMs(text: string): number {
+  const BASE_MS = 800;
+  const PER_CHAR_MS = 30;
+  const MAX_MS = 4000;
+  return Math.min(BASE_MS + text.length * PER_CHAR_MS, MAX_MS);
+}
+
+// YCloud API key for the workspace (used for the typing indicator).
+async function getYCloudApiKey(
+  workspaceId: string,
+  supabase: ReturnType<typeof svc>,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("integrations")
+    .select("credentials")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", "ycloud")
+    .maybeSingle();
+  const cred = (data?.credentials ?? {}) as Record<string, unknown>;
+  return typeof cred.ycloud_api_key === "string" ? cred.ycloud_api_key : null;
+}
+
+// Most recent inbound WhatsApp message id (wamid) in this batch — the typing
+// indicator endpoint marks it read and shows "typing…" to that user.
+async function getLatestInboundWamid(
+  batchId: string,
+  supabase: ReturnType<typeof svc>,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("messages")
+    .select("wamid")
+    .eq("batch_id", batchId)
+    .eq("direction", "in")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return typeof data?.wamid === "string" ? data.wamid : null;
+}
+
 interface ApplyN8nActionsParams {
   actions: N8nAgentAction[];
   workspaceId: string;
