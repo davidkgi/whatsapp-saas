@@ -1,1 +1,92 @@
+{
+  "name": "Agente WhatsApp — Concesionario (starter)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agente-whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-in",
+      "name": "Webhook (desde la app)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-40, 300],
+      "webhookId": "agente-whatsapp"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1) Valida el secreto compartido (mismo valor que credentials.secret de la\n//    integración n8n en la app).\nconst item = $input.first().json;\nconst secret = (item.headers && item.headers['x-agent-secret']) || '';\nconst EXPECTED = $env.AGENT_SECRET || 'CAMBIA_ESTE_SECRETO';\nif (secret !== EXPECTED) {\n  throw new Error('Secret inválido');\n}\n\nconst body = item.body || {};\nconst history = Array.isArray(body.history) ? body.history : [];\nconst media = Array.isArray(body.media) ? body.media : [];\n\n// 2) MEDIA (voz/imagen): este scaffold es text-first. Si media.length > 0,\n//    agrega ANTES de este nodo (o en un branch) la descarga de media[i].signed_url\n//    y su transcripción (Whisper) / visión, y súmalo a mergedText.\nlet mediaNote = '';\nif (media.length) {\n  mediaNote = '\\n[El cliente envió ' + media.length + ' archivo(s) multimedia; ' +\n    'signed_url disponibles para transcribir/entender.]';\n}\n\n// 3) Arma los mensajes para el LLM.\nconst messages = [\n  {\n    role: 'system',\n    content: 'Eres el asistente de WhatsApp de un concesionario. Tu trabajo es calificar leads: identifica modelo de interés, presupuesto y forma de pago, y responde breve, cálido y claro en español colombiano. Si el lead está listo para avanzar, dilo.'\n  },\n  ...history.map(h => ({\n    role: h.role === 'assistant' ? 'assistant' : 'user',\n    content: String(h.content || '')\n  })),\n  { role: 'user', content: String(body.mergedText || '') + mediaNote }\n];\n\nreturn [{ json: { messages, _ctx: { workspaceId: body.workspaceId, conversationId: body.conversationId } } }];"
+      },
+      "id": "build-messages",
+      "name": "Validar + armar mensajes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.OPENAI_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.4, messages: $json.messages }) }}",
+        "options": {}
+      },
+      "id": "openai-chat",
+      "name": "OpenAI Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae la respuesta y la devuelve en el contrato que espera la app:\n//   { text: string, actions?: [{ type: 'handoff'|'add_tag'|'send_template'|'set_stage', ... }] }\nconst data = $input.first().json;\nconst text = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content || '').trim()\n  || 'Gracias por tu mensaje, en un momento te atiende un asesor.';\n\n// Ejemplo de acción (opcional): descomenta para probar el handoff.\n// const actions = [{ type: 'handoff' }];\nconst actions = [];\n\nreturn [{ json: { text, actions } }];"
+      },
+      "id": "format-reply",
+      "name": "Formatear respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Responder a la app",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Webhook (desde la app)": {
+      "main": [[{ "node": "Validar + armar mensajes", "type": "main", "index": 0 }]]
+    },
+    "Validar + armar mensajes": {
+      "main": [[{ "node": "OpenAI Chat", "type": "main", "index": 0 }]]
+    },
+    "OpenAI Chat": {
+      "main": [[{ "node": "Formatear respuesta", "type": "main", "index": 0 }]]
+    },
+    "Formatear respuesta": {
+      "main": [[{ "node": "Responder a la app", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}
 
