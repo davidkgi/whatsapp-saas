@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   PIPELINE_STAGES,
   type PipelineCard,
@@ -14,6 +15,7 @@ export function PipelineBoard({
 }: {
   initialCards: PipelineCard[];
 }) {
+  const router = useRouter();
   const [cards, setCards] = useState<PipelineCard[]>(initialCards);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<PipelineStageId | null>(null);
@@ -120,8 +122,30 @@ export function PipelineBoard({
                         className="h-4 w-4 text-muted-foreground/40 shrink-0 mt-0.5"
                         aria-hidden="true"
                       />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">
+                      <div
+                        className={cn(
+                          "min-w-0 flex-1",
+                          card.conversationId &&
+                            "cursor-pointer group/open",
+                        )}
+                        onClick={() => {
+                          if (card.conversationId) {
+                            router.push(`/inbox/${card.conversationId}`);
+                          }
+                        }}
+                        title={
+                          card.conversationId
+                            ? "Abrir conversación"
+                            : undefined
+                        }
+                      >
+                        <p
+                          className={cn(
+                            "text-sm font-medium truncate",
+                            card.conversationId &&
+                              "group-hover/open:text-primary group-hover/open:underline",
+                          )}
+                        >
                           {card.name || "Sin nombre"}
                         </p>
                         <p className="flex items-center gap-1 text-xs text-muted-foreground truncate">
@@ -191,4 +215,3 @@ function Chip({
     </span>
   );
 }
-
