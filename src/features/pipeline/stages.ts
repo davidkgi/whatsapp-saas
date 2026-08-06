@@ -51,4 +51,5 @@ export interface PipelineCard {
   modelo: string | null;
   presupuesto: string | null;
   createdAt: string;
+  conversationId: string | null;
 }
