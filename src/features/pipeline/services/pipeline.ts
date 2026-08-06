@@ -48,6 +48,18 @@ export async function getPipelineCards(
   const { data } = await query;
   const rows = (data ?? []) as ContactRow[];
 
+  // Map each contact → its conversation id (one conversation per contact),
+  // so a card can open the chat at /inbox/{conversationId}.
+  const { data: convs } = await supabase
+    .from("conversations")
+    .select("id, contact_id")
+    .eq("workspace_id", workspaceId);
+
+  const convByContact = new Map<string, string>();
+  for (const c of (convs ?? []) as Array<{ id: string; contact_id: string }>) {
+    if (!convByContact.has(c.contact_id)) convByContact.set(c.contact_id, c.id);
+  }
+
   return rows.map((r) => {
     const cf = r.custom_fields ?? {};
     return {
@@ -61,6 +73,7 @@ export async function getPipelineCards(
       presupuesto:
         typeof cf.presupuesto === "string" ? cf.presupuesto : null,
       createdAt: r.created_at,
+      conversationId: convByContact.get(r.id) ?? null,
     };
   });
 }
@@ -83,4 +96,3 @@ export async function updateContactStage(
   }
   return true;
 }
-
