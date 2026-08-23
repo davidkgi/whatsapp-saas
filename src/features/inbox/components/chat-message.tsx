@@ -1,6 +1,8 @@
-import { PenLine, Bot } from "lucide-react";
+import { Bot, PenLine } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import type { MessageRow } from "@/features/inbox/types";
+
 import { StatusIcon } from "./status-icon";
 import { MessageAttachment } from "./message-attachment";
 
@@ -8,24 +10,30 @@ interface ChatMessageProps {
   message: MessageRow;
 }
 
-/** Author chip for outbound messages: "IA" badge or the operator's name. */
+/**
+ * Muestra quién envió un mensaje saliente:
+ * - IA cuando no existe sender_user_id.
+ * - Nombre del asesor cuando fue enviado manualmente.
+ */
 function OutboundAuthor({ message }: { message: MessageRow }) {
-  // AI-generated when there is no human sender.
   if (!message.sender_user_id) {
     return (
-      <span className="inline-flex items-center gap-0.5 rounded bg-primary/15 px-1 text-[9px] font-semibold uppercase tracking-wide text-primary">
-        <Bot className="h-2.5 w-2.5" aria-hidden="true" />
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+        <Bot className="h-3 w-3" aria-hidden="true" />
         IA
       </span>
     );
   }
-  const name = message.sender?.full_name ?? "Operador";
-  const initial = name.trim()[0]?.toUpperCase() ?? "·";
+
+  const name = message.sender?.full_name ?? "Asesor";
+  const initial = name.trim()[0]?.toUpperCase() ?? "A";
+
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/15 text-[8px] font-semibold text-foreground">
+    <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
+      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
         {initial}
       </span>
+
       {name}
     </span>
   );
@@ -52,25 +60,30 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const time = formatTime(message.created_at);
   const internal = isInternalNote(message);
 
-  // Internal note — centered, amber tint, italic
+  /**
+   * Nota interna
+   */
   if (internal) {
     return (
-      <div className="flex justify-center my-1" role="note">
-        <div className="max-w-[80%] rounded-lg px-3 py-2 space-y-1 bg-warning/8 border border-warning/20">
-          <div className="flex items-center gap-1.5 text-warning">
-            <PenLine className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span className="text-[10px] font-medium uppercase tracking-wide">
+      <div className="my-3 flex justify-center" role="note">
+        <div className="max-w-[78%] rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+          <div className="mb-1.5 flex items-center gap-1.5 text-amber-700">
+            <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+
+            <span className="text-[10px] font-semibold uppercase tracking-wide">
               Nota interna
             </span>
           </div>
+
           {message.body && (
-            <p className="text-sm text-foreground/80 italic leading-relaxed whitespace-pre-wrap break-words">
+            <p className="whitespace-pre-wrap break-words text-sm italic leading-relaxed text-foreground/80">
               {message.body}
             </p>
           )}
-          <div className="flex justify-end">
+
+          <div className="mt-1.5 flex justify-end">
             <span
-              className="font-mono text-[10px] text-muted-foreground/60"
+              className="text-[10px] text-muted-foreground"
               suppressHydrationWarning
             >
               {time}
@@ -81,41 +94,61 @@ export function ChatMessage({ message }: ChatMessageProps) {
     );
   }
 
+  /**
+   * Mensaje WhatsApp
+   */
   return (
-    <div className={cn("flex", isOutbound ? "justify-end" : "justify-start")}>
+    <div
+      className={cn(
+        "flex w-full py-1",
+        isOutbound ? "justify-end" : "justify-start",
+      )}
+    >
       <div
         className={cn(
-          "max-w-[75%] rounded-lg px-3 py-2 space-y-1",
+          "relative max-w-[78%] px-3.5 py-2.5 shadow-sm md:max-w-[68%]",
           isOutbound
-            ? "bg-primary/10 border border-primary/30 rounded-tr-sm"
-            : "bg-muted/50 rounded-tl-sm",
+            ? [
+                "rounded-2xl rounded-br-md",
+                "border border-emerald-200/70",
+                "bg-emerald-50",
+              ]
+            : [
+                "rounded-2xl rounded-bl-md",
+                "border border-border/70",
+                "bg-background",
+              ],
         )}
       >
+        {/* Contenido */}
         {message.type !== "text" && message.type !== "system" ? (
           <MessageAttachment media={message.meta} type={message.type} />
         ) : (
           message.body && (
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+            <p className="whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-foreground">
               {message.body}
             </p>
           )
         )}
 
+        {/* Metadata */}
         <div
           className={cn(
-            "flex items-center gap-1",
+            "mt-1.5 flex min-h-4 items-center gap-1.5",
             isOutbound ? "justify-end" : "justify-start",
           )}
         >
           {isOutbound && message.type !== "system" && (
             <OutboundAuthor message={message} />
           )}
+
           <span
-            className="font-mono text-[10px] text-muted-foreground"
+            className="text-[10px] text-muted-foreground"
             suppressHydrationWarning
           >
             {time}
           </span>
+
           {isOutbound && <StatusIcon status={message.status} />}
         </div>
       </div>

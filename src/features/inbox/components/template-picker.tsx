@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Send } from "lucide-react";
+import {
+  ArrowLeft,
+  MessageSquareText,
+  Send,
+} from "lucide-react";
+
 import { toast } from "sonner";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +16,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+
 import {
   getApprovedTemplates,
   sendTemplateAction,
 } from "../services/template-actions";
+
 import type { TemplateRow } from "../services/templates";
 
 interface TemplatePickerProps {
@@ -22,63 +30,108 @@ interface TemplatePickerProps {
   onSent?: () => void;
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+function extractVariableCount(
+  body: string,
+): number {
+  const matches =
+    body.matchAll(/\{\{(\d+)\}\}/g);
 
-function extractVariableCount(body: string): number {
-  const matches = body.matchAll(/\{\{(\d+)\}\}/g);
   const seen = new Set<string>();
-  for (const m of matches) {
-    if (m[1]) seen.add(m[1]);
+
+  for (const match of matches) {
+    if (match[1]) {
+      seen.add(match[1]);
+    }
   }
+
   return seen.size;
 }
 
-function fillPreview(body: string, variables: string[]): string {
+function fillPreview(
+  body: string,
+  variables: string[],
+): string {
   let result = body;
-  variables.forEach((value, index) => {
-    result = result.replaceAll(`{{${index + 1}}}`, value || `...`);
-  });
+
+  variables.forEach(
+    (value, index) => {
+      result = result.replaceAll(
+        `{{${index + 1}}}`,
+        value || "...",
+      );
+    },
+  );
+
   return result;
 }
-
-// ── component ─────────────────────────────────────────────────────────────────
 
 export function TemplatePicker({
   conversationId,
   workspaceId,
   onSent,
 }: TemplatePickerProps) {
-  const [templates, setTemplates] = useState<TemplateRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateRow | null>(
+  const [templates, setTemplates] =
+    useState<TemplateRow[]>([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [
+    selectedTemplate,
+    setSelectedTemplate,
+  ] = useState<TemplateRow | null>(
     null,
   );
-  const [variables, setVariables] = useState<string[]>([]);
-  const [isPending, setIsPending] = useState(false);
 
-  // Load on mount
+  const [variables, setVariables] =
+    useState<string[]>([]);
+
+  const [isPending, setIsPending] =
+    useState(false);
+
   useEffect(() => {
-    // `isLoading` is initialized to true; the fetch clears it in finally.
     let cancelled = false;
-    getApprovedTemplates(workspaceId)
+
+    getApprovedTemplates(
+      workspaceId,
+    )
       .then((rows) => {
-        if (!cancelled) setTemplates(rows);
+        if (!cancelled) {
+          setTemplates(rows);
+        }
       })
       .catch(() => {
-        if (!cancelled) setTemplates([]);
+        if (!cancelled) {
+          setTemplates([]);
+        }
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
     };
   }, [workspaceId]);
 
-  function handleSelectTemplate(template: TemplateRow) {
-    const count = extractVariableCount(template.body_template);
+  function handleSelectTemplate(
+    template: TemplateRow,
+  ) {
+    const count =
+      extractVariableCount(
+        template.body_template,
+      );
+
     setSelectedTemplate(template);
-    setVariables(Array.from({ length: count }, () => ""));
+
+    setVariables(
+      Array.from(
+        { length: count },
+        () => "",
+      ),
+    );
   }
 
   function handleBack() {
@@ -86,71 +139,105 @@ export function TemplatePicker({
     setVariables([]);
   }
 
-  function handleVariableChange(index: number, value: string) {
-    setVariables((prev) => {
-      const next = [...prev];
+  function handleVariableChange(
+    index: number,
+    value: string,
+  ) {
+    setVariables((previous) => {
+      const next = [...previous];
+
       next[index] = value;
+
       return next;
     });
   }
 
   async function handleSend() {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate) {
+      return;
+    }
+
     setIsPending(true);
+
     try {
-      const result = await sendTemplateAction(
-        workspaceId,
-        conversationId,
-        selectedTemplate.name,
-        selectedTemplate.language,
-        variables,
-      );
+      const result =
+        await sendTemplateAction(
+          workspaceId,
+          conversationId,
+          selectedTemplate.name,
+          selectedTemplate.language,
+          variables,
+        );
+
       if (result.ok) {
-        toast.success("Template enviado");
+        toast.success(
+          "Template enviado",
+        );
+
         setSelectedTemplate(null);
         setVariables([]);
+
         onSent?.();
       } else {
-        toast.error(result.error ?? "Error al enviar el template");
+        toast.error(
+          result.error ??
+            "Error al enviar el template",
+        );
       }
     } catch {
-      toast.error("Error inesperado al enviar el template");
+      toast.error(
+        "Error inesperado al enviar el template",
+      );
     } finally {
       setIsPending(false);
     }
   }
 
-  // ── loading ────────────────────────────────────────────────────────────────
+  /* ================================ */
+  /* LOADING                          */
+  /* ================================ */
+
   if (isLoading) {
     return (
       <div
-        className="space-y-2 p-1"
+        className="flex items-center gap-2 px-2 py-1"
         aria-busy="true"
         aria-label="Cargando templates"
       >
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-12 w-full rounded-lg" />
-        ))}
+        <Skeleton className="h-9 flex-1 rounded-xl" />
       </div>
     );
   }
 
-  // ── empty ──────────────────────────────────────────────────────────────────
-  if (!isLoading && templates.length === 0) {
+  /* ================================ */
+  /* EMPTY                            */
+  /* ================================ */
+
+  if (templates.length === 0) {
     return (
-      <p className="py-3 text-center text-sm text-muted-foreground">
-        Sin templates aprobados
-      </p>
+      <div className="flex min-h-[46px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-2">
+        <MessageSquareText className="h-4 w-4 shrink-0 text-slate-400" />
+
+        <p className="text-xs text-slate-500">
+          No hay plantillas aprobadas disponibles
+        </p>
+      </div>
     );
   }
 
-  // ── variable inputs ────────────────────────────────────────────────────────
+  /* ================================ */
+  /* TEMPLATE SELECCIONADO            */
+  /* ================================ */
+
   if (selectedTemplate) {
-    const preview = fillPreview(selectedTemplate.body_template, variables);
+    const preview = fillPreview(
+      selectedTemplate.body_template,
+      variables,
+    );
 
     return (
-      <div className="space-y-3">
-        {/* Back + heading */}
+      <div className="space-y-3 rounded-2xl border bg-white p-3 shadow-sm">
+        {/* Header */}
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -158,97 +245,160 @@ export function TemplatePicker({
             size="icon"
             onClick={handleBack}
             aria-label="Volver a lista de templates"
-            className="h-7 w-7 shrink-0"
+            className="h-8 w-8 shrink-0 rounded-lg"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <ArrowLeft
+              className="h-4 w-4"
+              aria-hidden="true"
+            />
           </Button>
-          <p className="font-display text-sm font-semibold text-foreground truncate">
-            {selectedTemplate.name}
-          </p>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {selectedTemplate.name}
+            </p>
+
+            <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+              Plantilla aprobada
+            </p>
+          </div>
+
+          <Badge
+            variant="outline"
+            className="shrink-0 rounded-full text-[10px]"
+          >
+            {selectedTemplate.language}
+          </Badge>
         </div>
 
-        {/* Body preview */}
-        <div className="rounded-lg bg-muted/50 border border-border/50 px-3 py-2 text-sm text-muted-foreground whitespace-pre-wrap">
+        {/* Preview */}
+        <div className="whitespace-pre-wrap rounded-xl border bg-slate-50 px-3 py-3 text-sm leading-relaxed text-slate-600">
           {preview}
         </div>
 
-        {/* Variable inputs */}
+        {/* Variables */}
         {variables.length > 0 && (
-          <div className="space-y-2">
-            {variables.map((value, index) => (
-              <div key={index} className="space-y-1">
-                <Label
-                  htmlFor={`tpl-var-${index}`}
-                  className="text-xs text-muted-foreground"
+          <div className="grid gap-2">
+            {variables.map(
+              (value, index) => (
+                <div
+                  key={index}
+                  className="space-y-1"
                 >
-                  Variable {`{{${index + 1}}}`}
-                </Label>
-                <Input
-                  id={`tpl-var-${index}`}
-                  value={value}
-                  onChange={(e) => handleVariableChange(index, e.target.value)}
-                  placeholder="Valor..."
-                  className="h-8 text-sm"
-                  disabled={isPending}
-                />
-              </div>
-            ))}
+                  <Label
+                    htmlFor={`tpl-var-${index}`}
+                    className="text-[11px] text-slate-500"
+                  >
+                    Variable{" "}
+                    {`{{${index + 1}}}`}
+                  </Label>
+
+                  <Input
+                    id={`tpl-var-${index}`}
+                    value={value}
+                    onChange={(event) =>
+                      handleVariableChange(
+                        index,
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Valor..."
+                    className="h-9 rounded-lg text-sm"
+                    disabled={isPending}
+                  />
+                </div>
+              ),
+            )}
           </div>
         )}
 
-        {/* Send button */}
+        {/* Enviar */}
         <Button
           type="button"
-          variant="default"
-          className="w-full"
           onClick={handleSend}
           disabled={isPending}
           aria-busy={isPending}
+          className="h-10 w-full rounded-xl bg-[#071b3b] text-xs text-white hover:bg-[#0b2a59]"
         >
-          <Send className="h-4 w-4 mr-2" aria-hidden="true" />
-          {isPending ? "Enviando..." : "Enviar template"}
+          <Send
+            className="mr-2 h-4 w-4"
+            aria-hidden="true"
+          />
+
+          {isPending
+            ? "Enviando..."
+            : "Enviar plantilla"}
         </Button>
       </div>
     );
   }
 
-  // ── template list ──────────────────────────────────────────────────────────
+  /* ================================ */
+  /* LISTA DE TEMPLATES               */
+  /* ================================ */
+
   return (
-    <ScrollArea className="max-h-48">
-      <div className="space-y-1 pr-1">
-        {templates.map((template) => (
-          <button
-            key={template.id}
-            type="button"
-            onClick={() => handleSelectTemplate(template)}
-            className={cn(
-              "w-full text-left rounded-lg px-3 py-2 cursor-pointer",
-              "bg-muted/50 hover:bg-muted transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            )}
-          >
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <span className="text-sm font-medium text-foreground truncate">
-                {template.name}
-              </span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Badge
-                  variant="outline"
-                  className="text-[10px] px-1.5 py-0 font-mono"
-                >
-                  {template.language}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] px-1.5 py-0 border-success/40 text-success"
-                >
-                  aprobado
-                </Badge>
-              </div>
-            </div>
-          </button>
-        ))}
+    <div className="rounded-2xl border bg-white p-2">
+      <div className="mb-2 flex items-center justify-between px-1">
+        <div>
+          <p className="text-xs font-medium text-slate-700">
+            Enviar plantilla
+          </p>
+
+          <p className="mt-0.5 text-[10px] text-slate-400">
+            Ventana de 24 horas cerrada
+          </p>
+        </div>
+
+        <Badge
+          variant="secondary"
+          className="rounded-full text-[10px]"
+        >
+          {templates.length}
+        </Badge>
       </div>
-    </ScrollArea>
+
+      <ScrollArea className="max-h-44">
+        <div className="space-y-1">
+          {templates.map(
+            (template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() =>
+                  handleSelectTemplate(
+                    template,
+                  )
+                }
+                className={cn(
+                  "w-full rounded-xl border border-transparent px-3 py-2.5 text-left transition-all",
+                  "hover:border-slate-200 hover:bg-slate-50",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300",
+                )}
+              >
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-slate-700">
+                      {template.name}
+                    </p>
+
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      Plantilla aprobada
+                    </p>
+                  </div>
+
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 rounded-full text-[9px]"
+                  >
+                    {template.language}
+                  </Badge>
+                </div>
+              </button>
+            ),
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

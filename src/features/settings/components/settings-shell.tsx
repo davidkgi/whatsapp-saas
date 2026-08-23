@@ -1,6 +1,17 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useState } from "react";
+import {
+  Bot,
+  Building2,
+  Cable,
+  FileText,
+  Library,
+  Settings2,
+  Sparkles,
+  Users,
+} from "lucide-react";
+
 import { BusinessInfoForm } from "./business-info-form";
 import { ToolsCatalog } from "./tools-catalog";
 import { IntegrationsTab } from "./integrations-tab";
@@ -8,8 +19,11 @@ import { TeamTab } from "./team-tab";
 import { TemplatesTab } from "./templates-tab";
 import { AutomationsTab } from "./automations-tab";
 import { KbTab } from "./kb-tab";
+
 import { AgentsTab } from "@/features/agents/components/agents-tab";
 import type { AgentDto } from "@/features/agents/types";
+
+import { cn } from "@/lib/utils";
 
 interface ToolItem {
   id: string;
@@ -31,6 +45,72 @@ interface Props {
   initialAgents?: AgentDto[];
 }
 
+type SettingsSection =
+  | "agentes"
+  | "integraciones"
+  | "negocio"
+  | "tools"
+  | "templates"
+  | "knowledge-base"
+  | "equipo"
+  | "automatizaciones";
+
+const SETTINGS_NAV: Array<{
+  id: SettingsSection;
+  label: string;
+  description: string;
+  icon: typeof Bot;
+}> = [
+  {
+    id: "agentes",
+    label: "Agentes",
+    description: "Configura tus agentes de IA",
+    icon: Bot,
+  },
+  {
+    id: "integraciones",
+    label: "Integraciones",
+    description: "WhatsApp y servicios externos",
+    icon: Cable,
+  },
+  {
+    id: "negocio",
+    label: "Negocio",
+    description: "Información del workspace",
+    icon: Building2,
+  },
+  {
+    id: "tools",
+    label: "Tools",
+    description: "Herramientas disponibles para IA",
+    icon: Settings2,
+  },
+  {
+    id: "templates",
+    label: "Templates",
+    description: "Plantillas de mensajería",
+    icon: FileText,
+  },
+  {
+    id: "knowledge-base",
+    label: "Knowledge Base",
+    description: "Fuentes de conocimiento",
+    icon: Library,
+  },
+  {
+    id: "equipo",
+    label: "Equipo",
+    description: "Usuarios y permisos",
+    icon: Users,
+  },
+  {
+    id: "automatizaciones",
+    label: "Automatizaciones",
+    description: "Reglas y flujos automáticos",
+    icon: Sparkles,
+  },
+];
+
 export function SettingsShell({
   workspaceId,
   initialBusinessInfo,
@@ -39,92 +119,208 @@ export function SettingsShell({
   initialTemplates = [],
   initialAgents = [],
 }: Props) {
+  const [activeSection, setActiveSection] =
+    useState<SettingsSection>("agentes");
+
   const biForForm = initialBusinessInfo as {
     structured: Record<string, unknown>;
     free_text: string | null;
   } | null;
 
-  return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <h1 className="font-display text-xl font-semibold text-foreground mb-6">
-        Configuración del Workspace
-      </h1>
+  const activeItem = SETTINGS_NAV.find(
+    (item) => item.id === activeSection,
+  );
 
-      <Tabs defaultValue="agentes">
-        {/* Scroll the tab strip within its own track instead of letting 11 tabs
-            push horizontal overflow onto the whole page. */}
-        <div className="mb-6 -mx-1 overflow-x-auto px-1 pb-1">
-          <TabsList className="w-max">
-            <TabsTrigger value="agentes">Agentes</TabsTrigger>
-            <TabsTrigger value="integraciones">Integraciones</TabsTrigger>
-            <TabsTrigger value="negocio">Negocio</TabsTrigger>
-            <TabsTrigger value="tools">Tools</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
-            <TabsTrigger value="knowledge-base">Knowledge Base</TabsTrigger>
-            <TabsTrigger value="equipo">Equipo</TabsTrigger>
-            <TabsTrigger value="automatizaciones">Automatizaciones</TabsTrigger>
-          </TabsList>
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-[#f7f8fb]">
+      {/* HEADER */}
+      <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+            Configuración
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Administra agentes, integraciones y preferencias del workspace.
+          </p>
+        </div>
+      </header>
+
+      {/* BODY */}
+      <div className="flex min-h-0 flex-1">
+        {/* SETTINGS NAV */}
+        <aside className="hidden w-[250px] shrink-0 border-r border-slate-200 bg-white lg:block">
+          <div className="p-3">
+            <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Workspace
+            </p>
+
+            <nav className="space-y-1">
+              {SETTINGS_NAV.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  activeSection === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      setActiveSection(item.id)
+                    }
+                    className={cn(
+                      "group flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
+                      isActive
+                        ? "bg-violet-50 text-violet-700"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        isActive
+                          ? "bg-violet-100 text-violet-700"
+                          : "bg-slate-100 text-slate-400 group-hover:text-slate-600",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold">
+                        {item.label}
+                      </p>
+
+                      <p
+                        className={cn(
+                          "mt-0.5 text-[10px] leading-relaxed",
+                          isActive
+                            ? "text-violet-500"
+                            : "text-slate-400",
+                        )}
+                      >
+                        {item.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
+
+        {/* MOBILE NAV */}
+        <div className="border-b bg-white p-3 lg:hidden">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {SETTINGS_NAV.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                activeSection === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    setActiveSection(item.id)
+                  }
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-colors",
+                    isActive
+                      ? "border-violet-200 bg-violet-50 text-violet-700"
+                      : "border-slate-200 bg-white text-slate-500",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <TabsContent value="agentes">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <AgentsTab
-              workspaceId={workspaceId}
-              initialAgents={initialAgents}
-            />
-          </div>
-        </TabsContent>
+        {/* CONTENT */}
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-5xl px-5 py-5 sm:px-6">
+            {/* SECTION HEADER */}
+            <div className="mb-5">
+              <h2 className="text-base font-semibold text-slate-900">
+                {activeItem?.label}
+              </h2>
 
-        <TabsContent value="integraciones">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <IntegrationsTab
-              workspaceId={workspaceId}
-              initialIntegrations={initialIntegrations}
-            />
-          </div>
-        </TabsContent>
+              <p className="mt-1 text-xs text-slate-500">
+                {activeItem?.description}
+              </p>
+            </div>
 
-        <TabsContent value="negocio">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <BusinessInfoForm workspaceId={workspaceId} initial={biForForm} />
-          </div>
-        </TabsContent>
+            {/* SECTION CONTENT */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="p-5 sm:p-6">
+                {activeSection === "agentes" && (
+                  <AgentsTab
+                    workspaceId={workspaceId}
+                    initialAgents={initialAgents}
+                  />
+                )}
 
-        <TabsContent value="tools">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <ToolsCatalog
-              workspaceId={workspaceId}
-              initialTools={initialTools}
-            />
-          </div>
-        </TabsContent>
+                {activeSection ===
+                  "integraciones" && (
+                  <IntegrationsTab
+                    workspaceId={workspaceId}
+                    initialIntegrations={
+                      initialIntegrations
+                    }
+                  />
+                )}
 
-        <TabsContent value="templates">
-          <div className="p-6 rounded-lg border border-border/60 bg-card">
-            <TemplatesTab
-              workspaceId={workspaceId}
-              initialTemplates={initialTemplates}
-            />
-          </div>
-        </TabsContent>
-        <TabsContent value="knowledge-base">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <KbTab workspaceId={workspaceId} />
-          </div>
-        </TabsContent>
+                {activeSection === "negocio" && (
+                  <BusinessInfoForm
+                    workspaceId={workspaceId}
+                    initial={biForForm}
+                  />
+                )}
 
-        <TabsContent value="equipo">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <TeamTab workspaceId={workspaceId} />
-          </div>
-        </TabsContent>
+                {activeSection === "tools" && (
+                  <ToolsCatalog
+                    workspaceId={workspaceId}
+                    initialTools={initialTools}
+                  />
+                )}
 
-        <TabsContent value="automatizaciones">
-          <div className="p-6 space-y-6 rounded-lg border border-border/60 bg-card">
-            <AutomationsTab workspaceId={workspaceId} />
+                {activeSection ===
+                  "templates" && (
+                  <TemplatesTab
+                    workspaceId={workspaceId}
+                    initialTemplates={
+                      initialTemplates
+                    }
+                  />
+                )}
+
+                {activeSection ===
+                  "knowledge-base" && (
+                  <KbTab
+                    workspaceId={workspaceId}
+                  />
+                )}
+
+                {activeSection === "equipo" && (
+                  <TeamTab
+                    workspaceId={workspaceId}
+                  />
+                )}
+
+                {activeSection ===
+                  "automatizaciones" && (
+                  <AutomationsTab
+                    workspaceId={workspaceId}
+                  />
+                )}
+              </div>
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </main>
+      </div>
     </div>
   );
 }
