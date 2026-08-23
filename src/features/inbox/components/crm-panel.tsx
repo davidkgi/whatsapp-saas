@@ -2,6 +2,7 @@
 
 import {
   KeyboardEvent,
+  useEffect,
   useState,
   useTransition,
 } from "react";
@@ -42,14 +43,10 @@ import {
 
 import type { ContactRow } from "@/features/inbox/types";
 
-type Stage =
-  | "new"
-  | "engaged"
-  | "qualified"
-  | "customer"
-  | "lost";
+type Stage = string;
 
-const STAGE_LABELS: Record<Stage, string> = {
+// Fallback labels used only if the dynamic stages can't be loaded.
+const STAGE_LABELS: Record<string, string> = {
   new: "Nuevo",
   engaged: "Interesado",
   qualified: "Calificado",
@@ -131,11 +128,35 @@ export function CrmPanel({
     contact.email ?? "",
   );
 
-  const [stage, setStage] =
-    useState<Stage>(
-      (contact.stage as Stage | null) ??
-        "new",
-    );
+  const [stage, setStage] = useState<string>(contact.stage ?? "");
+
+  const [dynamicStages, setDynamicStages] = useState<
+    Array<{ key: string; label: string }>
+  >([]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/pipeline/stages")
+      .then((r) => (r.ok ? r.json() : { stages: [] }))
+      .then((d: { stages?: Array<{ key: string; label: string }> }) => {
+        if (alive && Array.isArray(d.stages)) setDynamicStages(d.stages);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const stageOptions =
+    dynamicStages.length > 0
+      ? dynamicStages
+      : Object.entries(STAGE_LABELS).map(([key, label]) => ({ key, label }));
+
+  const stageLabel = (k: string) =>
+    stageOptions.find((o) => o.key === k)?.label ??
+    (k
+      ? k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ")
+      : "Sin etapa");
 
   const [tags, setTags] = useState<
     string[]
@@ -278,7 +299,7 @@ export function CrmPanel({
               </p>
 
               <p className="mt-0.5 truncate text-[11px] font-medium text-slate-700">
-                {STAGE_LABELS[stage]}
+                {stageLabel(stage)}
               </p>
             </div>
 
@@ -409,25 +430,15 @@ export function CrmPanel({
                   </SelectTrigger>
 
                   <SelectContent>
-                    {(
-                      Object.keys(
-                        STAGE_LABELS,
-                      ) as Stage[]
-                    ).map(
-                      (stageKey) => (
-                        <SelectItem
-                          key={stageKey}
-                          value={stageKey}
-                          className="text-xs"
-                        >
-                          {
-                            STAGE_LABELS[
-                              stageKey
-                            ]
-                          }
-                        </SelectItem>
-                      ),
-                    )}
+                    {stageOptions.map((opt) => (
+                      <SelectItem
+                        key={opt.key}
+                        value={opt.key}
+                        className="text-xs"
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
