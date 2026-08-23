@@ -2,9 +2,8 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// connect-src: realtime needs the wss:// scheme explicitly (a schemeless
-// host-source does not reliably match WebSocket connections). In dev we also
-// allow the localhost HMR/RSC sockets so Turbopack's runtime works under CSP.
+// connect-src: Supabase Realtime necesita wss:// explícito.
+// En desarrollo permitimos también sockets locales para HMR/Turbopack.
 const connectSrc = [
   "'self'",
   "*.supabase.co",
@@ -12,13 +11,29 @@ const connectSrc = [
   "api.ycloud.com",
   "openrouter.ai",
   "services.leadconnectorhq.com",
-  ...(isDev ? ["ws://localhost:*", "http://localhost:*"] : []),
+  ...(isDev
+    ? [
+        "ws://localhost:*",
+        "http://localhost:*",
+        "ws://127.0.0.1:*",
+        "http://127.0.0.1:*",
+      ]
+    : []),
 ].join(" ");
 
 const securityHeaders = [
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "X-Frame-Options",
+    value: "DENY",
+  },
+  {
+    key: "X-Content-Type-Options",
+    value: "nosniff",
+  },
+  {
+    key: "Referrer-Policy",
+    value: "strict-origin-when-cross-origin",
+  },
   {
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
@@ -43,22 +58,54 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Self-host on a VPS (Easypanel/Docker) instead of Vercel: emit a minimal
-  // standalone server (.next/standalone) that runs with `node server.js`.
+  // Producción self-hosted en Easypanel / Docker
   output: "standalone",
-  ...(process.env.NODE_ENV !== "production" && {
+
+  // Configuración únicamente para desarrollo / GitHub Codespaces
+  ...(isDev && {
     experimental: {
       mcpServer: true,
+
+      serverActions: {
+        allowedOrigins: [
+          "localhost:3000",
+          "127.0.0.1:3000",
+          "localhost:3001",
+          "127.0.0.1:3001",
+
+          // Codespace actual
+          "scaling-spoon-p75g5x594j92w74-3000.app.github.dev",
+          "scaling-spoon-p75g5x594j92w74-3001.app.github.dev",
+
+          // Permite otros puertos del mismo Codespace
+          "*.app.github.dev",
+        ],
+      },
     },
+
+    allowedDevOrigins: [
+      "localhost",
+      "127.0.0.1",
+      "scaling-spoon-p75g5x594j92w74-3000.app.github.dev",
+      "scaling-spoon-p75g5x594j92w74-3001.app.github.dev",
+      "*.app.github.dev",
+    ],
   }),
+
   headers: async () => [
     {
       source: "/(.*)",
       headers: securityHeaders,
     },
   ],
-  // Serve the app icon for legacy /favicon.ico probes (avoids a 404).
-  rewrites: async () => [{ source: "/favicon.ico", destination: "/icon.svg" }],
+
+  // Evita 404 de probes legacy al favicon
+  rewrites: async () => [
+    {
+      source: "/favicon.ico",
+      destination: "/icon.svg",
+    },
+  ],
 };
 
 export default nextConfig;

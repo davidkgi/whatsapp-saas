@@ -45,7 +45,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
-          {process.env.NODE_ENV === "development" && <Agentation />}
+          {/* {process.env.NODE_ENV === "development" && <Agentation />} */}
         </ThemeProvider>
       </body>
     </html>
