@@ -16,7 +16,7 @@ import type { ContactRow } from "@/features/inbox/types";
 const UpdateContactSchema = z.object({
   name: z.string().min(1, "El nombre es requerido").optional(),
   email: z.string().email("Email inválido").optional(),
-  stage: z.enum(["new", "engaged", "qualified", "customer", "lost"]).optional(),
+  stage: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
   opt_in: z.boolean().optional(),
 });
