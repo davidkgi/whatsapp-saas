@@ -35,6 +35,9 @@ import { syncContactToHL, createHLOpportunity } from "./highlevel-client";
 
 const DEFAULT_SILENCE_MS = 30_000; // 30 seconds silence window
 const MAX_BATCH_RETRIES = 3;
+// Internal setter disabled: the agent brain (incl. qualification / stage moves)
+// lives in n8n now. The buffer stays a pure buffer.
+const SETTER_ENABLED = false;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal types
@@ -536,7 +539,7 @@ export async function processNextBatch(): Promise<ProcessBatchResult> {
     // runs even if the serverless function is frozen right after the batch. It is
     // fully try/catched internally and never throws into the batch path. Dormant
     // unless an enabled setter_config exists for the workspace.
-    if (activeAgent?.type === "setter") {
+    if (SETTER_ENABLED && activeAgent?.type === "setter") {
       await runSetterEvaluation({
         workspaceId: batch.workspace_id,
         conversationId: batch.conversation_id,
