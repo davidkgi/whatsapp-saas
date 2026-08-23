@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/features/workspace/services/active-workspace";
-import { updateContactStage } from "@/features/pipeline/services/pipeline";
-import { isValidStage, type PipelineStageId } from "@/features/pipeline/stages";
+import { getDefaultPipelineStages } from "@/features/pipeline/services/pipeline";
 
 export const dynamic = "force-dynamic";
 
-// PATCH /api/pipeline/stage  { contactId, stage }
-export async function PATCH(req: Request) {
+// GET /api/pipeline/stages → stage defs of the workspace's default pipeline.
+// Used by the inbox CRM panel to render the stage selector dynamically.
+export async function GET() {
   const supabase = await createClient();
 
   const {
@@ -22,28 +22,6 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "no active workspace" }, { status: 400 });
   }
 
-  let body: { contactId?: unknown; stage?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
-  }
-
-  const contactId = typeof body.contactId === "string" ? body.contactId : "";
-  const stage = typeof body.stage === "string" ? body.stage : "";
-
-  if (!contactId || !isValidStage(stage)) {
-    return NextResponse.json({ error: "invalid params" }, { status: 400 });
-  }
-
-  const ok = await updateContactStage(
-    membership.workspace_id,
-    contactId,
-    stage as PipelineStageId,
-  );
-  if (!ok) {
-    return NextResponse.json({ error: "update failed" }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
+  const stages = await getDefaultPipelineStages(membership.workspace_id);
+  return NextResponse.json({ stages });
 }
