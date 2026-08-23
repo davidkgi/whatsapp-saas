@@ -1,55 +1,44 @@
 // ──────────────────────────────────────────────────────────────────────────────
-// Pipeline stages for the dealership Kanban. Pure constants + types (no server
-// imports) so both the client board and the server services can use them.
-// These ids MUST match the values added to the `contact_stage` enum.
+// Pipeline types — pure, no server imports, safe for client and server.
+// Stages are now DYNAMIC (they live in the `pipeline_stages` table per
+// workspace/pipeline), so there are no hardcoded stage constants here anymore.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const PIPELINE_STAGES = [
-  { id: "nuevo", label: "Nuevo", color: "#64748b" },
-  { id: "contactado", label: "Contactado", color: "#6366f1" },
-  { id: "calificado", label: "Calificado", color: "#2563eb" },
-  { id: "cotizacion", label: "Cotización", color: "#06b6d4" },
-  { id: "test_drive", label: "Test Drive", color: "#0ea5e9" },
-  { id: "negociacion", label: "Negociación", color: "#f59e0b" },
-  { id: "ganado", label: "Ganado", color: "#10b981" },
-  { id: "perdido", label: "Perdido", color: "#94a3b8" },
-] as const;
-
-export type PipelineStageId = (typeof PIPELINE_STAGES)[number]["id"];
-
-export const PIPELINE_STAGE_IDS: PipelineStageId[] = PIPELINE_STAGES.map(
-  (s) => s.id,
-);
-
-// Legacy enum values (from the original setter) → dealership stages, so no
-// existing contact ever disappears from the board.
-const LEGACY_MAP: Record<string, PipelineStageId> = {
-  new: "nuevo",
-  engaged: "contactado",
-  qualified: "calificado",
-  customer: "ganado",
-  lost: "perdido",
-};
-
-export function normalizeStage(raw: string): PipelineStageId {
-  if (PIPELINE_STAGE_IDS.includes(raw as PipelineStageId)) {
-    return raw as PipelineStageId;
-  }
-  return LEGACY_MAP[raw] ?? "nuevo";
+export interface PipelineStageDef {
+  key: string; // value stored in contacts.stage and used by the n8n agent
+  label: string; // shown in the Kanban column header
+  color: string;
+  position: number;
+  isWon: boolean;
+  isLost: boolean;
 }
 
-export function isValidStage(raw: string): raw is PipelineStageId {
-  return PIPELINE_STAGE_IDS.includes(raw as PipelineStageId);
+export interface PipelineSummary {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  position: number;
 }
 
 export interface PipelineCard {
   id: string;
   name: string | null;
   phone: string;
-  stage: PipelineStageId;
+  stage: string; // one of the pipeline's stage keys
   source: string | null;
   modelo: string | null;
   presupuesto: string | null;
   createdAt: string;
   conversationId: string | null;
+}
+
+// Human label for a stage key, falling back to a prettified version of the key.
+export function labelForStage(
+  stages: PipelineStageDef[],
+  key: string | null | undefined,
+): string {
+  if (!key) return "Sin etapa";
+  const found = stages.find((s) => s.key === key);
+  if (found) return found.label;
+  return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
 }
