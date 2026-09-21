@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
   BarChart2,
   Bot,
   ChevronDown,
@@ -360,6 +361,15 @@ export function ChatThread({
           <div className="flex items-center justify-between gap-4">
             {/* Contacto */}
             <div className="flex min-w-0 items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => router.push("/inbox")}
+                className="-ml-1 mr-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 md:hidden"
+                aria-label="Volver a la lista"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-700">
                 {initials}
               </div>
