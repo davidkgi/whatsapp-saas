@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { ConversationList } from "./conversation-list";
+import { cn } from "@/lib/utils";
 import { useRealtimeConversations } from "@/features/inbox/hooks/use-realtime-conversations";
 
 import type {
@@ -64,21 +65,35 @@ export function InboxLayout({
     router.push(`/inbox/${conversation.id}`);
   };
 
+  const hasSelection = !!selectedConversationId;
+
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden bg-background">
-      {/* Panel izquierdo */}
-      <ConversationList
-        conversations={filtered}
-        selectedConversationId={selectedConversationId}
-        search={search}
-        activeTab={activeTab}
-        onSearchChange={setSearch}
-        onTabChange={setActiveTab}
-        onSelectConversation={handleSelectConversation}
-      />
+      {/* Panel izquierdo (lista): en móvil se oculta cuando hay un chat abierto */}
+      <div
+        className={cn(
+          "h-full min-h-0 w-full md:w-auto md:block",
+          hasSelection ? "hidden md:block" : "block",
+        )}
+      >
+        <ConversationList
+          conversations={filtered}
+          selectedConversationId={selectedConversationId}
+          search={search}
+          activeTab={activeTab}
+          onSearchChange={setSearch}
+          onTabChange={setActiveTab}
+          onSelectConversation={handleSelectConversation}
+        />
+      </div>
 
-      {/* Panel central / detalle */}
-      <main className="min-w-0 flex-1 overflow-hidden">
+      {/* Panel central / detalle: en móvil solo se ve cuando hay un chat abierto */}
+      <main
+        className={cn(
+          "min-w-0 flex-1 overflow-hidden",
+          hasSelection ? "block" : "hidden md:block",
+        )}
+      >
         {children}
       </main>
     </div>
