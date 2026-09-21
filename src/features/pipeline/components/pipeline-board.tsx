@@ -87,7 +87,10 @@ export function PipelineBoard({
         {pipelines.length > 1 && (
           <select
             value={activePipelineId}
-            onChange={(e) => router.push(`/pipeline?pipeline=${e.target.value}`)}
+            onChange={(e) => {
+              router.push(`/pipeline?pipeline=${e.target.value}`);
+              router.refresh();
+            }}
             className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium"
             aria-label="Seleccionar pipeline"
           >
