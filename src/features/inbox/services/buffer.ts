@@ -39,6 +39,18 @@ const MAX_BATCH_RETRIES = 3;
 // lives in n8n now. The buffer stays a pure buffer.
 const SETTER_ENABLED = false;
 
+// Comando de reinicio de memoria para PRUEBAS: borra el historial de la
+// conversación (memoria + inbox) y responde una confirmación por WhatsApp.
+// RESET_ALLOWED_PHONES vacío = abierto a cualquier número (útil en pruebas).
+// Llénalo para restringirlo, ej: ["+573112225763"]. En producción, restríngelo
+// o quita esta función.
+const RESET_COMMAND = "/r";
+const RESET_ALLOWED_PHONES: string[] = [];
+
+function isResetCommand(text: string): boolean {
+  return text.trim().toLowerCase() === RESET_COMMAND;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal types
 // ──────────────────────────────────────────────────────────────────────────────
@@ -290,6 +302,52 @@ export async function processNextBatch(): Promise<ProcessBatchResult> {
 
     if (convError || !conversation) {
       throw new Error(`Conversation not found: ${convError?.message}`);
+    }
+
+    // ── 4b. Comando /r (PRUEBAS): borra la memoria/historial y confirma ──
+    if (isResetCommand(mergedText)) {
+      let allowed = RESET_ALLOWED_PHONES.length === 0;
+      if (!allowed) {
+        const { data: contact } = await supabase
+          .from("contacts")
+          .select("phone")
+          .eq("id", conversation.contact_id as string)
+          .single();
+        allowed =
+          !!contact &&
+          RESET_ALLOWED_PHONES.includes(contact.phone as string);
+      }
+
+      if (allowed) {
+        // 1. Borra los mensajes de la conversación (memoria + inbox limpios)
+        await supabase
+          .from("messages")
+          .delete()
+          .eq("conversation_id", batch.conversation_id);
+
+        // 2. Reinicia el estado a IA activa
+        await supabase
+          .from("conversations")
+          .update({ state: "ai_active", ai_enabled: true, summary: null })
+          .eq("id", batch.conversation_id);
+
+        // 3. Confirma por WhatsApp
+        await dispatchText({
+          workspaceId: batch.workspace_id,
+          conversationId: batch.conversation_id,
+          body: "🔄 Memoria reiniciada. Empecemos de nuevo.",
+        });
+
+        // 4. Marca esa confirmación como interna (no cuenta en la memoria)
+        await supabase
+          .from("messages")
+          .update({ meta: { internal: true } })
+          .eq("conversation_id", batch.conversation_id)
+          .eq("direction", "out");
+
+        await markBatchProcessed(batch.id, mergedText, supabase);
+        return { processed: true, conversationId: batch.conversation_id };
+      }
     }
 
     // ── 5. Decision engine: state check + handoff trigger + rate limits ──────
