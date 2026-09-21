@@ -67,6 +67,7 @@ export default async function PipelinePage({
 
   return (
     <PipelineBoard
+      key={active.id}
       stages={stages}
       pipelines={pipelines}
       activePipelineId={active.id}
